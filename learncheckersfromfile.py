@@ -8,15 +8,18 @@ import pickle
 import random
 from os.path import isfile, dirname
 from os import makedirs
+import threading
 
 def learn_boye():
     boye = CheckerBoye()
+    boye.load_boye(dbname)
     board = 0
     data = list()
     win_data = 0
     lose_data = 0
     draw_data = 0
     corrupt_data = 0
+    dummylock = threading.Lock()
 
     #OCA_2.0 has the board flipped compared to this checkers board
     with open(open_file) as file:
@@ -133,17 +136,17 @@ def learn_boye():
                             if len(match_moves[len(match_moves)-1][1]) > 0:
                                 if isinstance(match_moves[len(match_moves)-1][1][0], int):
                                     #print("11")
-                                    boye.update_move_p(board_states[len(board_states)-1-statedif], match_moves[len(match_moves)-1][1], learn_rate, result_bonus, board_states[len(board_states)-1-statedif])
+                                    boye.update_move_p(board_states[len(board_states)-1-statedif], match_moves[len(match_moves)-1][1], learn_rate, result_bonus, board_states[len(board_states)-1-statedif], dummylock)
                                     statedif += 1
                                 else:
                                     #print("12")
-                                    boye.update_move_p(board_states[len(board_states)-1-statedif], match_moves[len(match_moves)-1][1][len(match_moves[len(match_moves)-1][1])-1], learn_rate, result_bonus, board_states[len(board_states)-1-statedif])
+                                    boye.update_move_p(board_states[len(board_states)-1-statedif], match_moves[len(match_moves)-1][1][len(match_moves[len(match_moves)-1][1])-1], learn_rate, result_bonus, board_states[len(board_states)-1-statedif], dummylock)
                                     statedif += 1
                                     for i in range(1, len(match_moves[len(match_moves)-1][1])):
                                         #print("13")
                                         boye.update_move_p(board_states[len(board_states) - 1 - statedif],
                                                            match_moves[len(match_moves) - 1][1][len(match_moves[len(match_moves)-1][1])-1-i], learn_rate, result_bonus,
-                                                           board_states[len(board_states) - statedif])
+                                                           board_states[len(board_states) - statedif], dummylock)
                                         statedif += 1
 
                         #print(len(match_moves))
@@ -156,11 +159,11 @@ def learn_boye():
                                 if len(innermove) > 0:
                                     if isinstance(innermove[0], int):
                                         #print("1")
-                                        boye.update_move_p(board_states[len(board_states)-1-statedif], innermove, learn_rate, result_bonus, board_states[len(board_states)-statedif])
+                                        boye.update_move_p(board_states[len(board_states)-1-statedif], innermove, learn_rate, result_bonus, board_states[len(board_states)-statedif], dummylock)
                                         statedif += 1
                                     else:
                                         #print("2")
-                                        boye.update_move_p(board_states[len(board_states)-1-statedif], innermove[len(innermove)-1], learn_rate, result_bonus, board_states[len(board_states)-statedif])
+                                        boye.update_move_p(board_states[len(board_states)-1-statedif], innermove[len(innermove)-1], learn_rate, result_bonus, board_states[len(board_states)-statedif],dummylock)
                                         statedif += 1
                                         for j in range(1, len(innermove)):
                                             #print(len(innermove))
@@ -168,7 +171,7 @@ def learn_boye():
                                             #print("3")
                                             boye.update_move_p(board_states[len(board_states) - 1 - statedif],
                                                                innermove[len(innermove) - 1-j], learn_rate, result_bonus,
-                                                               board_states[len(board_states) - statedif])
+                                                               board_states[len(board_states) - statedif], dummylock)
                                             statedif += 1
 
                         except IndexError:
@@ -184,7 +187,8 @@ def learn_boye():
                         print("Corrupt")
 
     file.close()
-    boye.save_boye(filedir)
+    boye.save_boye()
+    boye.end_boye()
     return
 
 def fix_match_moves(match_moves):
@@ -223,7 +227,8 @@ def fix_match_moves(match_moves):
 if __name__ == '__main__':
 
     open_file = "OCA_2.0.pdn"
-    filedir = "checker_boye_filelearn.txt"
+
+    dbname = "checker_boye_moves_mysql"
 
     learn_rate = 0.02
 

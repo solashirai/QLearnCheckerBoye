@@ -1,17 +1,21 @@
 from playcheckers import CheckerBoye, CheckersBoard
 import numpy as np
 import random
+import pymysql
+from multiprocessing import Process, Queue, current_process
+import time
 
-def play_self_boye():
+def boye_self_play(update_queue1, update_queue2):
+    print("Starting self play...")
     boye = CheckerBoye()
     black_boye = CheckerBoye()
     board = 0
 
-    boye.load_boye(loaddir)
-    black_boye.load_boye(loaddirblk)
+    boye.load_boye(dbname)
+    black_boye.load_boye(dbnameblk)
 
-    #this is probably far too many games to realistically play
-    fuckin_max = 10000000
+    #this is probably too many games to realistically play
+    fuckin_max = 250000
     fuckin_count = 0
     while fuckin_count < fuckin_max:
         board = CheckersBoard()
@@ -27,6 +31,8 @@ def play_self_boye():
         cont_pos = -1
 
         playing = True
+        #make sure first move is random so that there's more variance in the kind of games played
+        firstmove = True
 
         no_cap_count = 0
         while playing:
@@ -41,11 +47,11 @@ def play_self_boye():
 
                 while not valid_move:
 
-                    if random.randint(0,100) > randchance:
+                    if random.randint(0,100) > randchance or fuckin_count%10 == 0 or firstmove: #make black do random moves a lot more
                         init_pos, finl_dir, movep, isjump = black_boye.choose_best_move(board, cont_pos, turn)
                     else:
                         init_pos, finl_dir, movep, isjump = black_boye.choose_rando_move(board, cont_pos, turn)
-
+                    firstmove = False
 
                     if isjump:  # if the move is a jump
                         finl_pos = jump_neighbors[init_pos][finl_dir]
@@ -153,39 +159,71 @@ def play_self_boye():
                         else:
                             cont_pos = -1
                             turn = -turn
-        if len(boye_states) > len(boye_moves):
-            del boye_states[-1]
-        boye.update_move_p(boye_states[len(boye_states) - 1], boye_moves[len(boye_moves) - 1], learn_rate,
-                       reward, boye_states[len(boye_states) - 1])
-        for i in range(1, len(boye_moves)):
-            boye.update_move_p(boye_states[len(boye_states) - 1 - i], boye_moves[len(boye_moves)-1-i], learn_rate,
-                               reward, boye_states[len(boye_states) -i])
+        fuckin_count += 1
+        update_queue1.put([boye_states, boye_moves, reward])
+        update_queue2.put([black_boye_states, black_boye_moves, reward])
+        if fuckin_count % 500 == 0:
+            print(str(fuckin_count)+" games played by process "+str(current_process()))
+    print("Fuckin Max")
+    return
 
-
-        if len(black_boye_states) > len(black_boye_moves):
-            del black_boye_states[-1]
-        black_boye.update_move_p(black_boye_states[len(black_boye_states) - 1], black_boye_moves[len(black_boye_moves) - 1], learn_rate,
-                       reward, black_boye_states[len(black_boye_states) - 1])
-        for i in range(1, len(black_boye_moves)):
-            black_boye.update_move_p(black_boye_states[len(black_boye_states) - 1 - i], black_boye_moves[len(black_boye_moves)-1-i], learn_rate,
-                               reward, black_boye_states[len(black_boye_states) -i])
+def do_queue2(update_queue2):
+    fuckin_count = 0
+    print("Starting queue controller...")
+    black_boye = CheckerBoye()
+    black_boye.load_boye(dbnameblk)
+    while True:
+        queue_contents = update_queue2.get()
+        black_boye_update(black_boye, queue_contents[2], queue_contents[0], queue_contents[1])
         fuckin_count += 1
 
-        if fuckin_count%10000 == 0:
-            boye.save_boye(savedir)
-            black_boye.save_boye(savedirblk)
-            print("saved")
+        if fuckin_count % 250 == 0:
+            print("total black gamecount: " + str(fuckin_count))
 
-    print("Fuckin Max")
+        if fuckin_count % 1000 == 0:
+            black_boye.save_boye()
+            print("saved black")
 
+def do_queue1(update_queue1):
+    fuckin_count = 0
+    print("Starting queue controller...")
+    boye = CheckerBoye()
+    boye.load_boye(dbname)
+    while True:
+        queue_contents = update_queue1.get()
+        white_boye_update(boye, queue_contents[2], queue_contents[0], queue_contents[1])
+        fuckin_count += 1
 
+        if fuckin_count % 250 == 0:
+            print("total white gamecount: " + str(fuckin_count))
+
+        if fuckin_count % 1000 == 0:
+            boye.save_boye()
+            print("saved white")
+
+def white_boye_update(boye, reward, boye_states, boye_moves):
+    if len(boye_states) > len(boye_moves):
+        del boye_states[-1]
+    boye.update_move_p(boye_states[len(boye_states) - 1], boye_moves[len(boye_moves) - 1], learn_rate,
+                       reward, boye_states[len(boye_states) - 1])
+    for i in range(1, len(boye_moves)):
+        boye.update_move_p(boye_states[len(boye_states) - 1 - i], boye_moves[len(boye_moves) - 1 - i], learn_rate,
+                           reward, boye_states[len(boye_states) - i])
+
+def black_boye_update(black_boye, reward, black_boye_states, black_boye_moves):
+    if len(black_boye_states) > len(black_boye_moves):
+        del black_boye_states[-1]
+    black_boye.update_move_p(black_boye_states[len(black_boye_states) - 1], black_boye_moves[len(black_boye_moves) - 1],
+                             learn_rate,
+                             -reward, black_boye_states[len(black_boye_states) - 1])
+    for i in range(1, len(black_boye_moves)):
+        black_boye.update_move_p(black_boye_states[len(black_boye_states) - 1 - i],
+                                 black_boye_moves[len(black_boye_moves) - 1 - i], learn_rate,
+                                 -reward, black_boye_states[len(black_boye_states) - i])
 
 if __name__ == '__main__':
-
-    loaddir = "checker_boye_masturb3.txt"
-    loaddirblk = "checker_black_boye_masturb3.txt"
-    savedir = "checker_boye_masturb3.txt"
-    savedirblk = "checker_black_boye_masturb3.txt"
+    dbname = "checker_boye_moves_mysql"
+    dbnameblk = "checker_black_boye_moves_mysql"
 
     learn_rate = 0.1
     randchance = 5
@@ -202,7 +240,7 @@ if __name__ == '__main__':
 
     outcomes = ['1-0', '1/2-1/2', '0-1']
 
-    no_cap_max = 30
+    no_cap_max = 20
 
     valid_positions = range(32)
 
@@ -281,4 +319,25 @@ if __name__ == '__main__':
         31: [22, '', '', '']
     }
 
-    play_self_boye()
+    update_queue1 = Queue()
+    update_queue2 = Queue()
+    for i in range(2):
+        Process(target=boye_self_play, args=(update_queue1,update_queue2)).start()
+    px = Process(target=do_queue1, args=(update_queue1,))
+    Process(target=do_queue2, args=(update_queue2,)).start()
+    px.start()
+    px.join() #never ending
+    #boye_self_play()
+    print("Processes started")
+    #tf1 = checker_boye_self_playing(lock, lockb, lockc)
+    #tf2 = checker_boye_self_playing(lock, lockb)
+    #tf3 = checker_boye_self_playing(lock, lockb)
+    #tf4 = checker_boye_self_playing(lock, lockb)
+    #tf1.start()
+    #tf2.start()
+    #tf3.start()
+    #tf4.start()
+    #tf1.join()
+    #tf2.join()
+    #tf3.join()
+    #tf4.join()

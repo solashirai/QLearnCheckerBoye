@@ -8,6 +8,8 @@ import pickle
 import random
 from os.path import isfile, dirname
 from os import makedirs
+import pymysql
+from multiprocessing import Lock
 
 '''
  Board setup is in this shape and has corresponding position numbers assigned
@@ -302,34 +304,43 @@ class CheckerBoye():
     def __init__(self):
         #TODO: load in trained data. for now, we just start everything off as zeros
         self.boye_moves = {}
+        self.connec = ''
         #np.ndarray(shape=(32,32,4))
         #self.boye_moves = np.zeros(shape=(32, 32, 4))
 
-    def load_boye(self, file_dir):
-        try:
-            file = FileIO(file_dir, 'r')
-            self.boye_moves = pickle.load(file)
-            file.close()
-        except FileNotFoundError:
-            print("No file found to load")
+    def load_boye(self, dbname):
+        self.connec = pymysql.connect(host='localhost',
+                                      user='checkerboye',
+                                      password='password',
+                                      db=dbname)
+        self.c = self.connec.cursor()
+        self.c.execute("CREATE TABLE IF NOT EXISTS statemoves "+
+                        "(boardstate varchar(32), startpos int, "+
+                        "upleft float, upright float, botright float, botleft float, "+
+                        "primary key (boardstate, startpos))")
+        #self.dblock.release()
+        print("Connected to db")
 
-    def save_boye(self, file_dir):
-        try:
-            makedirs(dirname(file_dir))
-        except OSError as exc:
-            pass
-        file = FileIO(file_dir, 'w')
-        pickle.dump(self.boye_moves, file)
-        file.close()
+    def set_db_connection(self, dbcon):
+        self.connec = dbcon
+        print("DB Connection set up completed")
+
+    def save_boye(self):
+        self.connec.commit()
+        print("Boye saved")
+
+    def end_boye(self):
+        self.connec.close()
 
     def get_moves(self, board):
-        #TODO:return a list of moves and their probability of winning the game
         board_shape = np.reshape(board.state.as_matrix(), (32,))
-        board_shape = hash(tuple(board_shape))
-        if board_shape in self.boye_moves:
-            move_probabilities = self.boye_moves[board_shape]
-        else:
-            move_probabilities = np.zeros(shape=(32, 4))
+        board_shape = str(hash(tuple(board_shape)))
+        move_probabilities = np.zeros(shape=(32, 4))
+        self.c.execute("SELECT * FROM statemoves WHERE boardstate = %s", (board_shape,))
+        resultset = self.c.fetchall()
+        #print(resultset)
+        for row in resultset:
+            move_probabilities[row[1]] = [row[2], row[3], row[4], row[5]]
         return move_probabilities
 
     def update_move_p(self, board_state, move, rate, reward, next_board_state):
@@ -339,21 +350,25 @@ class CheckerBoye():
         #print(board_shape)
         next_shape = np.reshape(next_board_state.as_matrix(), (32,))
 
-        board_shape = hash(tuple(board_shape))
-        next_shape = hash(tuple(next_shape))
-        if board_shape in self.boye_moves:
-            move_probabilities = self.boye_moves[board_shape]
+        board_shape = str(hash(tuple(board_shape)))
+        next_shape = str(hash(tuple(next_shape)))
+
+        move_probabilities = np.zeros(shape=(32, 4))
+        self.c.execute("SELECT * FROM statemoves WHERE boardstate = %s AND startpos = %s", (board_shape, move[0]))
+        resultset = self.c.fetchone()
+        if resultset is not None:
+            movedata = [board_shape, move[0], resultset[2], resultset[3], resultset[4], resultset[5]]
         else:
-            move_probabilities = np.zeros(shape=(32, 4))
-        orig_val = move_probabilities[move[0]][move[1]]
+            movedata = [board_shape, move[0], 0, 0, 0, 0]
+
+        #print(movedata)
+        orig_val = movedata[move[1]+2]
         if board_state.equals(next_board_state):
-            move_probabilities[move[0]][move[1]] = orig_val+rate*(reward+reward-orig_val)
+            new_val = orig_val+rate*(reward+reward-orig_val)
         else:
-            move_probabilities[move[0]][move[1]] = orig_val+rate*(reward+self.max_reward(next_shape)-orig_val)
-        #if board_shape not in self.boye_moves:
-        self.boye_moves[board_shape] = move_probabilities
-        #else:
-         #   self.boye_moves[board_shape] = move_probabilities
+            new_val = orig_val+rate*(reward+self.max_reward(next_shape)-orig_val)
+        movedata[move[1]+2] = float(new_val)
+        self.c.execute("REPLACE INTO statemoves VALUES (%s,%s,%s,%s,%s,%s)", (movedata[0], movedata[1], movedata[2], movedata[3], movedata[4], movedata[5]))
 
     def modify_move_shape(self, move):
         init_pos = move[0]
@@ -363,13 +378,14 @@ class CheckerBoye():
             finl_dir = jump_neighbors[init_pos].index(move[1])
         return [init_pos, finl_dir]
 
-    def max_reward(self, board_shaped):
-        if board_shaped in self.boye_moves:
-            next_move_probs = self.boye_moves[board_shaped]
-        else:
-            next_move_probs = np.zeros(shape=(32, 4))
+    def max_reward(self, board_shape):
+        next_move_probabilities = np.zeros(shape=(32, 4))
+        self.c.execute("SELECT * FROM statemoves WHERE boardstate = %s", (board_shape,))
+        resultset = self.c.fetchall()
+        for row in resultset:
+            next_move_probabilities[row[1]] = [row[2], row[3], row[4], row[5]]
         max_row = 0
-        for row in next_move_probs:
+        for row in next_move_probabilities:
             max_row = np.maximum(max_row, np.amax(row))
         return max_row
 
@@ -379,6 +395,7 @@ class CheckerBoye():
         best_move_start = -1
         best_move_dir = -1
         valid_moves, is_jump = board.get_valid_moves(player_turn)
+        #all_ps = list()
         if len(valid_moves) == 0:
             return 0,0,0,False
         for i in range(32):
@@ -388,9 +405,11 @@ class CheckerBoye():
                         best_move_p = move_p[i][j]
                         best_move_start = i
                         best_move_dir = j
+                #all_ps.append(move_p[i][j])
         if best_move_p != 0:
             #print("best_Ps")
             #print(best_move_p)
+            #print(all_ps)
             return best_move_start, best_move_dir, best_move_p, is_jump
         else: #determine a random move if no best move exists
             rand_choice = random.choice(valid_moves)
@@ -403,6 +422,7 @@ class CheckerBoye():
                 best_move_dir = rand_choice[1]
             #print("best_Ps")
             #print(best_move_p)
+            #print(all_ps)
             return best_move_start, best_move_dir, 0, is_jump
 
     def choose_rando_move(self, board, cont_pos, player_turn):
@@ -429,12 +449,9 @@ def play_checkers():
     board = CheckersBoard()
     boye = CheckerBoye()
 
-    loaddir = "checker_boye_masturb3.txt"
-    savedir = "checker_boye_qsave"+"432"+".txt"
+    loaddir = "checker_boye_moves_mysql"
 
-    print("?")
     boye.load_boye(loaddir)
-    print("!")
 
     # 1 is black turn, -1 is white
     turn = 1
@@ -579,7 +596,7 @@ def play_checkers():
                             cont_pos = -1
                             turn = -turn
 
-    boye.save_boye(savedir)
+    boye.save_boye()
 
 
 if __name__ == '__main__':
