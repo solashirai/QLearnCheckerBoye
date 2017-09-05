@@ -10,6 +10,7 @@ def boye_self_play(update_queue1, update_queue2):
     boye = CheckerBoye()
     black_boye = CheckerBoye()
     board = 0
+    cache_reset_chance = 10 #10% chance to clear cache of moves and force boyes to get from database again
 
     boye.load_boye(dbname)
     black_boye.load_boye(dbnameblk)
@@ -19,6 +20,9 @@ def boye_self_play(update_queue1, update_queue2):
     fuckin_count = 0
     while fuckin_count < fuckin_max:
         board = CheckersBoard()
+        if random.randint(0, 100) < cache_reset_chance:
+            boye.clear_moves()
+            black_boye.clear_moves()
         boye_moves = list()
         boye_states = list()
         black_boye_moves = list()
@@ -59,7 +63,7 @@ def boye_self_play(update_queue1, update_queue2):
                         finl_pos = direct_neighbors[init_pos][finl_dir]
                     if finl_pos == '':
                         if invalid_count > 3:
-                            reward = 1
+                            reward = 4
                             playing = False
                             valid_move = True
                             break
@@ -77,7 +81,7 @@ def boye_self_play(update_queue1, update_queue2):
 
                     if not valid_move:
                         if invalid_count > 3:
-                            reward = 1
+                            reward = 4
                             playing = False
                             valid_move = True
                             break
@@ -85,7 +89,7 @@ def boye_self_play(update_queue1, update_queue2):
                         invalid_count += 1
                     elif cont_pos > -1 and init_pos != cont_pos:
                         if invalid_count > 3:
-                            reward = 1
+                            reward = 4
                             playing = False
                             valid_move = True
                             break
@@ -117,7 +121,7 @@ def boye_self_play(update_queue1, update_queue2):
                         finl_pos = direct_neighbors[init_pos][finl_dir]
                     if finl_pos == '':
                         if invalid_count > 3:
-                            reward = -1
+                            reward = -4
                             playing = False
                             valid_move = True
                             break
@@ -135,7 +139,7 @@ def boye_self_play(update_queue1, update_queue2):
 
                     if not valid_move:
                         if invalid_count > 3:
-                            reward = -1
+                            reward = -4
                             playing = False
                             valid_move = True
                             break
@@ -143,7 +147,7 @@ def boye_self_play(update_queue1, update_queue2):
                         invalid_count += 1
                     elif cont_pos > -1 and init_pos != cont_pos:
                         if invalid_count > 3:
-                            reward = -1
+                            reward = -4
                             playing = False
                             valid_move = True
                             break
@@ -321,7 +325,7 @@ if __name__ == '__main__':
 
     update_queue1 = Queue()
     update_queue2 = Queue()
-    for i in range(2):
+    for i in range(4):
         Process(target=boye_self_play, args=(update_queue1,update_queue2)).start()
     px = Process(target=do_queue1, args=(update_queue1,))
     Process(target=do_queue2, args=(update_queue2,)).start()
@@ -329,15 +333,3 @@ if __name__ == '__main__':
     px.join() #never ending
     #boye_self_play()
     print("Processes started")
-    #tf1 = checker_boye_self_playing(lock, lockb, lockc)
-    #tf2 = checker_boye_self_playing(lock, lockb)
-    #tf3 = checker_boye_self_playing(lock, lockb)
-    #tf4 = checker_boye_self_playing(lock, lockb)
-    #tf1.start()
-    #tf2.start()
-    #tf3.start()
-    #tf4.start()
-    #tf1.join()
-    #tf2.join()
-    #tf3.join()
-    #tf4.join()

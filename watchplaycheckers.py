@@ -21,7 +21,7 @@ from multiprocessing import Lock
  | B   B   B   B     | 20  21  22  23   |
  |   B   B   B   B   |   24  25  26  27 |
  | B   B   B   B     | 28  29  30  31   |
- 
+
  Board setup in terms of array
  [[-1, -1, -1, -1],
  [-1, -1, -1, -1],
@@ -31,7 +31,7 @@ from multiprocessing import Lock
  [ 1,  1,  1,  1],
  [ 1,  1,  1,  1],
  [ 1,  1,  1,  1]]
- 
+
 '''
 
 blk_chkr = 1
@@ -116,8 +116,8 @@ jump_neighbors = {
     31: [22, '', '', '']
 }
 
-class CheckersBoard(object):
 
+class CheckersBoard(object):
     def __init__(self):
         initial_state = StringIO("""-1,-1,-1,-1
             -1,-1,-1,-1
@@ -129,24 +129,27 @@ class CheckersBoard(object):
             1,1,1,1
         """)
         self.state = pd.read_csv(initial_state, sep=",", header=-1, index_col=None)
-        #TODO initialize board object
+        # print(self.state)
+        # TODO initialize board object
 
     def print_board(self):
         for i in range(8):
             toprint = ''
-            if i%2 == 0:
+            if i % 2 == 0:
                 toprint += '  '
             if i < 2:
-                toprint += '0'+str(i*4)+'  '+'0'+str(i*4+1)+'  '+'0'+str(i*4+2)+'  '+'0'+str(i*4+3)
+                toprint += '0' + str(i * 4) + '  ' + '0' + str(i * 4 + 1) + '  ' + '0' + str(
+                    i * 4 + 2) + '  ' + '0' + str(i * 4 + 3)
             elif i == 2:
-                toprint += '0'+str(i*4)+'  '+'0'+str(i*4+1)+'  '+str(i*4+2)+'  '+str(i*4+3)
+                toprint += '0' + str(i * 4) + '  ' + '0' + str(i * 4 + 1) + '  ' + str(i * 4 + 2) + '  ' + str(
+                    i * 4 + 3)
             else:
-                toprint += str(i*4)+'  '+str(i*4+1)+'  '+str(i*4+2)+'  '+str(i*4+3)
-            if i%2 != 0:
+                toprint += str(i * 4) + '  ' + str(i * 4 + 1) + '  ' + str(i * 4 + 2) + '  ' + str(i * 4 + 3)
+            if i % 2 != 0:
                 toprint += '  '
             toprint += '| '
 
-            if i%2 == 0:
+            if i % 2 == 0:
                 toprint += '  '
             for j in range(4):
                 thisstate = self.state[j][i]
@@ -160,19 +163,19 @@ class CheckersBoard(object):
                     toprint += 'W   '
                 else:
                     toprint += 'o   '
-            if i%2 != 0:
+            if i % 2 != 0:
                 toprint += '  '
             print(toprint)
-        #TODO print the current state of the board
+            # TODO print the current state of the board
 
-    #TODO fix play code to force jump if one is available
+    # TODO fix play code to force jump if one is available
     def get_valid_jumps(self, player_turn):
         jump_list = list()
 
         if player_turn == 1:
             king_val = blk_kng_chkr
             chck_val = blk_chkr
-            move_dir = [0,1]
+            move_dir = [0, 1]
         else:
             king_val = wht_kng_chkr
             chck_val = wht_chkr
@@ -204,7 +207,7 @@ class CheckersBoard(object):
         return jump_list
 
     def get_valid_moves(self, player_turn):
-        #TODO generate a list of moves and their probability of leading to a win
+        # TODO generate a list of moves and their probability of leading to a win
         valid_moves = list()
         jump_moves = self.get_valid_jumps(player_turn)
         if len(jump_moves) > 0:
@@ -213,7 +216,7 @@ class CheckersBoard(object):
         if player_turn == 1:
             king_val = blk_kng_chkr
             chck_val = blk_chkr
-            move_dir = [0,1]
+            move_dir = [0, 1]
         else:
             king_val = wht_kng_chkr
             chck_val = wht_chkr
@@ -240,8 +243,8 @@ class CheckersBoard(object):
         return valid_moves, False
 
     def update_board_positions(self, movement, player_turn, eliminated_piece):
-        #TODO update board positions based on selected movement, player that made the move, and whether
-        #TODO or not the player eliminated a piece
+        # TODO update board positions based on selected movement, player that made the move, and whether
+        # TODO or not the player eliminated a piece
         init_pos = movement[0]
         finl_pos = movement[1]
 
@@ -261,51 +264,54 @@ class CheckersBoard(object):
         cont_jump = False
 
         if not eliminated_piece and len(self.get_valid_jumps(player_turn)) > 0:
-            #a jump exists but wasn't taken. invalid move
+            # a jump exists but wasn't taken. invalid move
             return False, False
-        if (board_copy[init_pos] == chck_val or board_copy[init_pos] == king_val) and board_copy[finl_pos] == 0 and ((eliminated_piece and finl_pos in jump_neighbors[init_pos]) or (not eliminated_piece and finl_pos in direct_neighbors[init_pos])):
-            #valid move, update positions on the board
+        if (board_copy[init_pos] == chck_val or board_copy[init_pos] == king_val) and board_copy[finl_pos] == 0 and (
+            (eliminated_piece and finl_pos in jump_neighbors[init_pos]) or (
+            not eliminated_piece and finl_pos in direct_neighbors[init_pos])):
+            # valid move, update positions on the board
             board_copy[finl_pos] = board_copy[init_pos]
-            board_copy[init_pos] = 0 #empty original position
+            board_copy[init_pos] = 0  # empty original position
 
-            #update to king if on the appropriate row
+            # update to king if on the appropriate row
             if finl_pos in king_row:
                 board_copy[finl_pos] = king_val
 
             if eliminated_piece:
-                #figure out which piece should be eliminated
+                # figure out which piece should be eliminated
                 if finl_pos in jump_neighbors.get(init_pos):
                     jump_direction = jump_neighbors.get(init_pos).index(finl_pos)
                     jumped_pos = direct_neighbors.get(init_pos)[jump_direction]
-                    #eliminate piece
+                    # eliminate piece
                     board_copy[jumped_pos] = 0
                 else:
-                    #invalid jump
+                    # invalid jump
                     return False, False
 
-            board_copy = pd.DataFrame(np.reshape(board_copy, (8,4)))
+            board_copy = pd.DataFrame(np.reshape(board_copy, (8, 4)))
             self.state = board_copy
 
             if eliminated_piece:
-                #determine if a chain capture exists
+                # determine if a chain capture exists
                 cont_jump_list = self.get_valid_jumps(player_turn)
-                if len(cont_jump_list) > 0 and (finl_pos not in king_row or (finl_pos in king_row and not king_changed)):
+                if len(cont_jump_list) > 0 and (
+                        finl_pos not in king_row or (finl_pos in king_row and not king_changed)):
                     for pairing in cont_jump_list:
                         if finl_pos == pairing[0]:
                             cont_jump = True
             return True, cont_jump
         else:
-            #not a valid move
+            # not a valid move
             return False, False
 
-class CheckerBoye():
 
+class CheckerBoye():
     def __init__(self):
-        #TODO: load in trained data. for now, we just start everything off as zeros
+        # TODO: load in trained data. for now, we just start everything off as zeros
         self.boye_moves = {}
         self.connec = ''
-        self.move_cache = {}
-        #self.boye_moves = np.zeros(shape=(32, 32, 4))
+        # np.ndarray(shape=(32,32,4))
+        # self.boye_moves = np.zeros(shape=(32, 32, 4))
 
     def load_boye(self, dbname):
         self.connec = pymysql.connect(host='localhost',
@@ -313,11 +319,11 @@ class CheckerBoye():
                                       password='password',
                                       db=dbname)
         self.c = self.connec.cursor()
-        self.c.execute("CREATE TABLE IF NOT EXISTS statemoves "+
-                        "(boardstate varchar(32), startpos int, "+
-                        "upleft float, upright float, botright float, botleft float, "+
-                        "primary key (boardstate, startpos))")
-        #self.dblock.release()
+        self.c.execute("CREATE TABLE IF NOT EXISTS statemoves " +
+                       "(boardstate varchar(32), startpos int, " +
+                       "upleft float, upright float, botright float, botleft float, " +
+                       "primary key (boardstate, startpos))")
+        # self.dblock.release()
         print("Connected to db")
 
     def set_db_connection(self, dbcon):
@@ -331,30 +337,22 @@ class CheckerBoye():
     def end_boye(self):
         self.connec.close()
 
-    def clear_moves(self):
-        #clear out move cache
-        self.move_cache = {}
-
     def get_moves(self, board):
         board_shape = np.reshape(board.state.as_matrix(), (32,))
         board_shape = str(hash(tuple(board_shape)))
         move_probabilities = np.zeros(shape=(32, 4))
-        if board_shape in self.move_cache:
-            move_probabilities = self.move_cache[board_shape]
-        else:
-            self.c.execute("SELECT * FROM statemoves WHERE boardstate = %s", (board_shape,))
-            resultset = self.c.fetchall()
-            #print(resultset)
-            for row in resultset:
-                move_probabilities[row[1]] = [row[2], row[3], row[4], row[5]]
-            self.move_cache[board_shape] = move_probabilities
+        self.c.execute("SELECT * FROM statemoves WHERE boardstate = %s", (board_shape,))
+        resultset = self.c.fetchall()
+        # print(resultset)
+        for row in resultset:
+            move_probabilities[row[1]] = [row[2], row[3], row[4], row[5]]
         return move_probabilities
 
     def update_move_p(self, board_state, move, rate, reward, next_board_state):
         move = self.modify_move_shape(move)
-        #print(board_state)
+        # print(board_state)
         board_shape = np.reshape(board_state.as_matrix(), (32,))
-        #print(board_shape)
+        # print(board_shape)
         next_shape = np.reshape(next_board_state.as_matrix(), (32,))
 
         board_shape = str(hash(tuple(board_shape)))
@@ -368,14 +366,15 @@ class CheckerBoye():
         else:
             movedata = [board_shape, move[0], 0, 0, 0, 0]
 
-        #print(movedata)
-        orig_val = movedata[move[1]+2]
+        # print(movedata)
+        orig_val = movedata[move[1] + 2]
         if board_state.equals(next_board_state):
-            new_val = orig_val+rate*(reward+reward-orig_val)
+            new_val = orig_val + rate * (reward + reward - orig_val)
         else:
-            new_val = orig_val+rate*(reward+self.max_reward(next_shape)-orig_val)
-        movedata[move[1]+2] = float(new_val)
-        self.c.execute("REPLACE INTO statemoves VALUES (%s,%s,%s,%s,%s,%s)", (movedata[0], movedata[1], movedata[2], movedata[3], movedata[4], movedata[5]))
+            new_val = orig_val + rate * (reward + self.max_reward(next_shape) - orig_val)
+        movedata[move[1] + 2] = float(new_val)
+        self.c.execute("REPLACE INTO statemoves VALUES (%s,%s,%s,%s,%s,%s)",
+                       (movedata[0], movedata[1], movedata[2], movedata[3], movedata[4], movedata[5]))
 
     def modify_move_shape(self, move):
         init_pos = move[0]
@@ -402,34 +401,34 @@ class CheckerBoye():
         best_move_start = -1
         best_move_dir = -1
         valid_moves, is_jump = board.get_valid_moves(player_turn)
-        #all_ps = list()
+        all_ps = list()
         if len(valid_moves) == 0:
-            return 0,0,0,False
+            return 0, 0, 0, False
         for i in range(32):
             for j in range(4):
-                if move_p[i][j] > best_move_p or best_move_start == -1:
-                    if [i, j] in valid_moves and (cont_pos == -1 or i == cont_pos):
+                if [i, j] in valid_moves and (move_p[i][j] > best_move_p or best_move_start == -1):
+                    if (cont_pos == -1 or i == cont_pos):
                         best_move_p = move_p[i][j]
                         best_move_start = i
                         best_move_dir = j
-                #all_ps.append(move_p[i][j])
+                        # all_ps.append(move_p[i][j])
         if best_move_p != 0:
-            #print("best_Ps")
-            #print(best_move_p)
-            #print(all_ps)
+            print("best_Ps")
+            print(best_move_p)
+            print(all_ps)
             return best_move_start, best_move_dir, best_move_p, is_jump
-        else: #determine a random move if no best move exists
+        else:  # determine a random move if no best move exists
             rand_choice = random.choice(valid_moves)
             best_move_start = rand_choice[0]
             best_move_dir = rand_choice[1]
-            #safetynet to ensure movement is correct if a chain jump exists
+            # safetynet to ensure movement is correct if a chain jump exists
             while (cont_pos != -1 and best_move_start != cont_pos):
                 rand_choice = random.choice(valid_moves)
                 best_move_start = rand_choice[0]
                 best_move_dir = rand_choice[1]
-            #print("best_Ps")
-            #print(best_move_p)
-            #print(all_ps)
+            print("best_Ps")
+            print(best_move_p)
+            print(all_ps)
             return best_move_start, best_move_dir, 0, is_jump
 
     def choose_rando_move(self, board, cont_pos, player_turn):
@@ -439,33 +438,36 @@ class CheckerBoye():
         best_move_dir = -1
         valid_moves, is_jump = board.get_valid_moves(player_turn)
         if len(valid_moves) == 0:
-            return 0,0,0,False
-        #else: #determine a random move if no best move exists
+            return 0, 0, 0, False
+        # else: #determine a random move if no best move exists
         rand_choice = random.choice(valid_moves)
         best_move_start = rand_choice[0]
         best_move_dir = rand_choice[1]
-        #safetynet to ensure movement is correct if a chain jump exists
+        # safetynet to ensure movement is correct if a chain jump exists
         while (cont_pos != -1 and best_move_start != cont_pos):
             rand_choice = random.choice(valid_moves)
             best_move_start = rand_choice[0]
             best_move_dir = rand_choice[1]
         return best_move_start, best_move_dir, 0, is_jump
 
-def play_checkers():
 
+def play_checkers():
     board = CheckersBoard()
     boye = CheckerBoye()
+    black_boye = CheckerBoye()
 
     loaddir = "checker_boye_moves_mysql"
+    loaddirblack = "checker_black_boye_moves_mysql"
 
     boye.load_boye(loaddir)
+    black_boye.load_boye(loaddirblack)
 
     # 1 is black turn, -1 is white
     turn = 1
     # used to save position to continue chain captures
     cont_pos = -1
 
-    #boye.load_boye(file_dir=filedir)
+    # boye.load_boye(file_dir=filedir)
 
     print("Begin playing checkers.\n\n")
     playing = True
@@ -476,91 +478,89 @@ def play_checkers():
             playing = False
             Print("Too many turns without a piece capture - Assuming Draw")
             break
-        if turn == 1: #black turn
-            invalid_count = 0
+        if turn == 1:  # black turn
             print("\n\nBlack's turn.")
             board.print_board()
             valid_move = False
+            invalid_count = 0
 
             while not valid_move:
-                move = input("Enter move as 'initial_pos, final_pos'")
+
+                init_pos, finl_dir, movep, isjump = black_boye.choose_best_move(board, cont_pos, turn)
 
                 if 1 == 2:
                     print("uwot")
-                    #TODO case when win
-                    #TODO case when draw
-                else: #normal movement case
-                    move = move.split(',')
+                else:  # normal movement case
 
-                    try:
-                        init_pos = int(move[0])
-                        finl_pos = int(move[1])
-                        if init_pos > 31 or init_pos < 0 or finl_pos > 31 or finl_pos < 0:
-                            print("Not a valid move. try again")
-                            invalid_count += 1
-                            continue
-                        if abs(finl_pos - init_pos) > 5:
-                            elim_p = True
-                            no_cap_count = 0
-                        else:
-                            elim_p = False
-                        valid_move, cont_jump = board.update_board_positions(movement=[init_pos, finl_pos],
-                                                                player_turn=turn, eliminated_piece=elim_p)
-
-                        if not valid_move:
-                            if invalid_count > 3:
-                                print("Assuming no more valid moves exist.\nWhite wins!")
-                                playing = False
-                                valid_move = True
-                                break
-                            print("Not a valid move. try again")
-                            invalid_count += 1
-                        elif cont_pos > -1 and init_pos != cont_pos:
-                            if invalid_count > 3:
-                                print("Assuming no more valid moves exist.\nWhite wins!")
-                                playing = False
-                                valid_move = True
-                                break
-                            print("Not a valid move. try again")
-                            invalid_count += 1
-                        else:
-                            print("Black moved piece %s"  % [init_pos, finl_pos])
-                            no_cap_count += 1
-                            if cont_jump:
-                                cont_pos = finl_pos
-                            else:
-                                cont_pos = -1
-                                turn = -turn
-                    except ValueError:
+                    # determine final position of movement
+                    # shit code below. cleanup later when bored
+                    if isjump:  # if the move is a jump
+                        finl_pos = jump_neighbors[init_pos][finl_dir]
+                    else:  # else
+                        finl_pos = direct_neighbors[init_pos][finl_dir]
+                    # TODO this is getting an error once white runs out of pieces
+                    if finl_pos == '':
+                        if invalid_count > 3:
+                            print("Assuming no more valid moves exist.\nWhite wins!")
+                            playing = False
+                            valid_move = True
+                            break
                         print("Not a valid move. try again")
                         invalid_count += 1
                         continue
-        else: #white turn. for now checkerboye is always white
-            #TODO: determine what move to be making for ai
-            #TODO: ai will determine on its own whether no more moves are available
+                    if abs(finl_pos - init_pos) > 5:
+                        elim_p = True
+                        no_cap_count = 0
+                    else:
+                        elim_p = False
+                    valid_move, cont_jump = board.update_board_positions(movement=[init_pos, finl_pos],
+                                                                         player_turn=turn, eliminated_piece=elim_p)
+
+                    if not valid_move:
+                        if invalid_count > 3:
+                            print("Assuming no more valid moves exist.\nWhite wins!")
+                            playing = False
+                            valid_move = True
+                            break
+                        print("Not a valid move. try again")
+                        invalid_count += 1
+                    elif cont_pos > -1 and init_pos != cont_pos:
+                        if invalid_count > 3:
+                            print("Assuming no more valid moves exist.\nWhite wins!")
+                            playing = False
+                            valid_move = True
+                            break
+                        print("Not a valid move. try again")
+                        invalid_count += 1
+                    else:
+                        print("Black moved piece %s" % [init_pos, finl_pos])
+                        no_cap_count += 1
+                        if cont_jump:
+                            cont_pos = finl_pos
+                        else:
+                            cont_pos = -1
+                            turn = -turn
+        else:  # white turn. for now checkerboye is always white
             print("\n\nWhite's turn.")
             board.print_board()
             valid_move = False
             invalid_count = 0
 
             while not valid_move:
-                #TODO first check if a jump exists since that has to be taken
 
                 init_pos, finl_dir, movep, isjump = boye.choose_best_move(board, cont_pos, turn)
 
                 if 1 == 2:
                     print("uwot")
-                    #TODO case when win
-                    #TODO case when draw
-                else: #normal movement case
+                else:  # normal movement case
 
-                    #determine final position of movement
-                    #shit code below. cleanup later when bored
-                    if isjump: #if the move is a jump
+                    # determine final position of movement
+                    # shit code below. cleanup later when bored
+                    if isjump:  # if the move is a jump
                         finl_pos = jump_neighbors[init_pos][finl_dir]
-                    else: #else
+                    else:  # else
                         finl_pos = direct_neighbors[init_pos][finl_dir]
-                    #TODO this is getting an error once white runs out of pieces
+                    # TODO this is getting an error once white runs out of pieces
                     if finl_pos == '':
                         if invalid_count > 3:
                             print("Assuming no more valid moves exist.\nBlack wins!")
@@ -576,7 +576,7 @@ def play_checkers():
                     else:
                         elim_p = False
                     valid_move, cont_jump = board.update_board_positions(movement=[init_pos, finl_pos],
-                                                              player_turn=turn, eliminated_piece=elim_p)
+                                                                         player_turn=turn, eliminated_piece=elim_p)
 
                     if not valid_move:
                         if invalid_count > 3:
@@ -595,7 +595,7 @@ def play_checkers():
                         print("Not a valid move. try again")
                         invalid_count += 1
                     else:
-                        print("White moved piece %s"  % [init_pos, finl_pos])
+                        print("White moved piece %s" % [init_pos, finl_pos])
                         no_cap_count += 1
                         if cont_jump:
                             cont_pos = finl_pos
@@ -603,12 +603,12 @@ def play_checkers():
                             cont_pos = -1
                             turn = -turn
 
-    boye.save_boye()
+    #boye.save_boye()
 
 
 if __name__ == '__main__':
-    #define variables to control board
-    #black is assumed to be positioned at the bottom of the screen
+    # define variables to control board
+    # black is assumed to be positioned at the bottom of the screen
     no_chkr = 0
 
     no_cap_max = 75
