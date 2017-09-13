@@ -13,14 +13,13 @@ from multiprocessing import Lock
 
 '''
  Board setup is in this shape and has corresponding position numbers assigned
- |   W   W   W   W   |   00  01  02  03 |
- | W   W   W   W     | 04  05  06  07   |
- |   W   W   W   W   |   08  09  10  11 |
- | O   O   O   O     | 12  13  14  15   |
- |   O   O   O   O   |   16  17  18  19 |
- | B   B   B   B     | 20  21  22  23   |
- |   B   B   B   B   |   24  25  26  27 |
- | B   B   B   B     | 28  29  30  31   |
+ Board is smaller than a real checker board because the time limitations
+ |   W   W   W  |   00  01  02 |
+ | W   W   W    | 03  04  05   |
+ |   O   O   O  |   06  07  08 |
+ | O   O   O    | 09  10  11   |
+ |   B   B   B  |   12  13  14 |
+ | B   B   B    | 15  16  17   |
  
  Board setup in terms of array
  [[-1, -1, -1, -1],
@@ -36,119 +35,88 @@ from multiprocessing import Lock
 
 blk_chkr = 1
 blk_kng_chkr = 2
-blk_kng_row = [0, 1, 2, 3]
+blk_kng_row = [0, 1, 2]
 wht_chkr = -blk_chkr
 wht_kng_chkr = -blk_kng_chkr
-wht_kng_row = [28, 29, 30, 31]
+wht_kng_row = [15, 16, 17]
 
 # dict of neighbors to be used to determine valid moves
 # neighbors are listed in the order of upper-left neighbor clockwise
 # if no neighbor exists in a corner it is indicated by ''
 direct_neighbors = {
-    0: ['', '', 5, 4],
-    1: ['', '', 6, 5],
-    2: ['', '', 7, 6],
-    3: ['', '', '', 7],
-    4: ['', 0, 8, ''],
-    5: [0, 1, 9, 8],
-    6: [1, 2, 10, 9],
-    7: [2, 3, 11, 10],
-    8: [4, 5, 13, 12],
-    9: [5, 6, 14, 13],
-    10: [6, 7, 15, 14],
-    11: [7, '', '', 15],
-    12: ['', 8, 16, ''],
-    13: [8, 9, 17, 16],
-    14: [9, 10, 18, 17],
-    15: [10, 11, 19, 18],
-    16: [12, 13, 21, 20],
-    17: [13, 14, 22, 21],
-    18: [14, 15, 23, 22],
-    19: [15, '', '', 23],
-    20: ['', 16, 24, ''],
-    21: [16, 17, 25, 24],
-    22: [17, 18, 26, 25],
-    23: [18, 19, 27, 26],
-    24: [20, 21, 29, 28],
-    25: [21, 22, 30, 29],
-    26: [22, 23, 31, 30],
-    27: [23, '', '', 31],
-    28: ['', 24, '', ''],
-    29: [24, 25, '', ''],
-    30: [25, 26, '', ''],
-    31: [26, 27, '', '']
+    0: ['', '', 4, 3],
+    1: ['', '', 5, 4],
+    2: ['', '', '', 5],
+    3: ['', 0, 6, ''],
+    4: [0, 1, 7, 6],
+    5: [1, 2, 8, 7],
+    6: [3, 4, 10, 9],
+    7: [4, 5, 11, 10],
+    8: [5, '', '', 11],
+    9: ['', 6, 12, ''],
+    10: [6, 7, 13, 12],
+    11: [7, 8, 14, 13],
+    12: [9, 10, 16, 15],
+    13: [10, 11, 17, 16],
+    14: [11, '', '', 17],
+    15: ['', 12, '', ''],
+    16: [12, 13, '', ''],
+    17: [13, 14, '', '']
 }
 
 # neighbors that exist if the direct neighbor is jumped over
 # '' is used if no jump neighbor exists
 jump_neighbors = {
-    0: ['', '', 9, ''],
-    1: ['', '', 10, 8],
-    2: ['', '', 11, 9],
-    3: ['', '', '', 10],
-    4: ['', '', 13, ''],
-    5: ['', '', 14, 12],
-    6: ['', '', 15, 13],
-    7: ['', '', '', 14],
-    8: ['', 1, 17, ''],
-    9: [0, 2, 18, 16],
-    10: [1, 3, 19, 17],
-    11: [2, '', '', 18],
-    12: ['', 5, 21, ''],
-    13: [4, 6, 22, 20],
-    14: [5, 7, 23, 21],
-    15: [6, '', '', 22],
-    16: ['', 9, 25, ''],
-    17: [8, 10, 26, 24],
-    18: [9, 11, 27, 25],
-    19: [10, '', '', 26],
-    20: ['', 13, 29, ''],
-    21: [12, 14, 30, 28],
-    22: [13, 15, 31, 29],
-    23: [14, '', '', 30],
-    24: ['', 17, '', ''],
-    25: [16, 18, '', ''],
-    26: [17, 19, '', ''],
-    27: [18, '', '', ''],
-    28: ['', 21, '', ''],
-    29: [20, 22, '', ''],
-    30: [21, 23, '', ''],
-    31: [22, '', '', '']
+    0: ['', '', 7, ''],
+    1: ['', '', 8, 6],
+    2: ['', '', '', 7],
+    3: ['', '', 10, ''],
+    4: ['', '', 11, 9],
+    5: ['', '', '', 10],
+    6: ['', 1, 13, ''],
+    7: [0, 2, 14, 12],
+    8: [1, '', '', 13],
+    9: ['', 4, 16, ''],
+    10: [3, 5, 17, 15],
+    11: [4, '', '', 16],
+    12: ['', 7, '', ''],
+    13: [6, 8, '', ''],
+    14: [7, '', '', ''],
+    15: ['', 10, '', ''],
+    16: [9, 11, '', ''],
+    17: [10, '', '', '']
 }
 
 class CheckersBoard(object):
 
     def __init__(self):
-        initial_state = StringIO("""-1,-1,-1,-1
-            -1,-1,-1,-1
-            -1,-1,-1,-1
-            0,0,0,0
-            0,0,0,0
-            1,1,1,1
-            1,1,1,1
-            1,1,1,1
+        initial_state = StringIO("""-1,-1,-1
+            -1,-1,-1
+            0,0,0
+            0,0,0
+            1,1,1
+            1,1,1
         """)
         self.state = pd.read_csv(initial_state, sep=",", header=-1, index_col=None)
-        #TODO initialize board object
 
     def print_board(self):
-        for i in range(8):
+        for i in range(6):
             toprint = ''
             if i%2 == 0:
                 toprint += '  '
-            if i < 2:
-                toprint += '0'+str(i*4)+'  '+'0'+str(i*4+1)+'  '+'0'+str(i*4+2)+'  '+'0'+str(i*4+3)
-            elif i == 2:
-                toprint += '0'+str(i*4)+'  '+'0'+str(i*4+1)+'  '+str(i*4+2)+'  '+str(i*4+3)
+            if i < 3:
+                toprint += '0'+str(i*3)+'  '+'0'+str(i*3+1)+'  '+'0'+str(i*3+2)
+            elif i == 3:
+                toprint += '0'+str(i*3)+'  '+str(i*3+1)+'  '+str(i*3+2)
             else:
-                toprint += str(i*4)+'  '+str(i*4+1)+'  '+str(i*4+2)+'  '+str(i*4+3)
+                toprint += str(i*3)+'  '+str(i*3+1)+'  '+str(i*3+2)
             if i%2 != 0:
                 toprint += '  '
             toprint += '| '
 
             if i%2 == 0:
                 toprint += '  '
-            for j in range(4):
+            for j in range(3):
                 thisstate = self.state[j][i]
                 if thisstate == 1:
                     toprint += 'b   '
@@ -163,25 +131,23 @@ class CheckersBoard(object):
             if i%2 != 0:
                 toprint += '  '
             print(toprint)
-        #TODO print the current state of the board
 
-    #TODO fix play code to force jump if one is available
     def get_valid_jumps(self, player_turn):
         jump_list = list()
 
         if player_turn == 1:
             king_val = blk_kng_chkr
             chck_val = blk_chkr
-            move_dir = [0,1]
+            move_dir = [0, 1]
         else:
             king_val = wht_kng_chkr
             chck_val = wht_chkr
             move_dir = [2, 3]
 
         board_copy = self.state.copy()
-        board_copy = np.reshape(board_copy.as_matrix(), (32,))
+        board_copy = np.reshape(board_copy.as_matrix(), (18,))
 
-        for i in range(32):
+        for i in range(18):
             piece = board_copy[i]
             dneighbors = direct_neighbors[i]
             jneighbors = jump_neighbors[i]
@@ -200,11 +166,9 @@ class CheckersBoard(object):
                     if neighbor != '' and nneighbor != '' and board_copy[nneighbor] == 0 and \
                             (board_copy[neighbor] == -chck_val or board_copy[neighbor] == -king_val):
                         jump_list.append([i, dir])
-
         return jump_list
 
     def get_valid_moves(self, player_turn):
-        #TODO generate a list of moves and their probability of leading to a win
         valid_moves = list()
         jump_moves = self.get_valid_jumps(player_turn)
         if len(jump_moves) > 0:
@@ -220,9 +184,9 @@ class CheckersBoard(object):
             move_dir = [2, 3]
 
         board_copy = self.state.copy()
-        board_copy = np.reshape(board_copy.as_matrix(), (32,))
+        board_copy = np.reshape(board_copy.as_matrix(), (18,))
 
-        for i in range(32):
+        for i in range(18):
             piece = board_copy[i]
             dneighbors = direct_neighbors[i]
 
@@ -240,8 +204,6 @@ class CheckersBoard(object):
         return valid_moves, False
 
     def update_board_positions(self, movement, player_turn, eliminated_piece):
-        #TODO update board positions based on selected movement, player that made the move, and whether
-        #TODO or not the player eliminated a piece
         init_pos = movement[0]
         finl_pos = movement[1]
 
@@ -255,7 +217,7 @@ class CheckersBoard(object):
             chck_val = wht_chkr
 
         board_copy = self.state.copy()
-        board_copy = np.reshape(board_copy.as_matrix(), (32,))
+        board_copy = np.reshape(board_copy.as_matrix(), (18,))
 
         king_changed = False
         cont_jump = False
@@ -283,7 +245,7 @@ class CheckersBoard(object):
                     #invalid jump
                     return False, False
 
-            board_copy = pd.DataFrame(np.reshape(board_copy, (8,4)))
+            board_copy = pd.DataFrame(np.reshape(board_copy, (6,3)))
             self.state = board_copy
 
             if eliminated_piece:
@@ -336,9 +298,9 @@ class CheckerBoye():
         self.move_cache = {}
 
     def get_moves(self, board):
-        board_shape = np.reshape(board.state.as_matrix(), (32,))
+        board_shape = np.reshape(board.state.as_matrix(), (18,))
         board_shape = str(hash(tuple(board_shape)))
-        move_probabilities = np.zeros(shape=(32, 4))
+        move_probabilities = np.zeros(shape=(18, 4))
         if board_shape in self.move_cache:
             move_probabilities = self.move_cache[board_shape]
         else:
@@ -353,14 +315,14 @@ class CheckerBoye():
     def update_move_p(self, board_state, move, rate, reward, next_board_state):
         move = self.modify_move_shape(move)
         #print(board_state)
-        board_shape = np.reshape(board_state.as_matrix(), (32,))
+        board_shape = np.reshape(board_state.as_matrix(), (18,))
         #print(board_shape)
-        next_shape = np.reshape(next_board_state.as_matrix(), (32,))
+        next_shape = np.reshape(next_board_state.as_matrix(), (18,))
 
         board_shape = str(hash(tuple(board_shape)))
         next_shape = str(hash(tuple(next_shape)))
 
-        move_probabilities = np.zeros(shape=(32, 4))
+        move_probabilities = np.zeros(shape=(18, 4))
         self.c.execute("SELECT * FROM statemoves WHERE boardstate = %s AND startpos = %s", (board_shape, move[0]))
         resultset = self.c.fetchone()
         if resultset is not None:
@@ -386,7 +348,7 @@ class CheckerBoye():
         return [init_pos, finl_dir]
 
     def max_reward(self, board_shape):
-        next_move_probabilities = np.zeros(shape=(32, 4))
+        next_move_probabilities = np.zeros(shape=(18, 4))
         self.c.execute("SELECT * FROM statemoves WHERE boardstate = %s", (board_shape,))
         resultset = self.c.fetchall()
         for row in resultset:
@@ -405,7 +367,7 @@ class CheckerBoye():
         #all_ps = list()
         if len(valid_moves) == 0:
             return 0,0,0,False
-        for i in range(32):
+        for i in range(18):
             for j in range(4):
                 if move_p[i][j] > best_move_p or best_move_start == -1:
                     if [i, j] in valid_moves and (cont_pos == -1 or i == cont_pos):
@@ -456,7 +418,7 @@ def play_checkers():
     board = CheckersBoard()
     boye = CheckerBoye()
 
-    loaddir = "checker_boye_moves_mysql"
+    loaddir = "checker_smol"
 
     boye.load_boye(loaddir)
 
@@ -487,19 +449,17 @@ def play_checkers():
 
                 if 1 == 2:
                     print("uwot")
-                    #TODO case when win
-                    #TODO case when draw
                 else: #normal movement case
                     move = move.split(',')
 
                     try:
                         init_pos = int(move[0])
                         finl_pos = int(move[1])
-                        if init_pos > 31 or init_pos < 0 or finl_pos > 31 or finl_pos < 0:
+                        if init_pos > 17 or init_pos < 0 or finl_pos > 17 or finl_pos < 0:
                             print("Not a valid move. try again")
                             invalid_count += 1
                             continue
-                        if abs(finl_pos - init_pos) > 5:
+                        if abs(finl_pos - init_pos) > 4:
                             elim_p = True
                             no_cap_count = 0
                         else:
@@ -521,7 +481,7 @@ def play_checkers():
                                 playing = False
                                 valid_move = True
                                 break
-                            print("Not a valid move. try again")
+                            print("Nodddt a valid move. try again")
                             invalid_count += 1
                         else:
                             print("Black moved piece %s"  % [init_pos, finl_pos])
@@ -536,22 +496,17 @@ def play_checkers():
                         invalid_count += 1
                         continue
         else: #white turn. for now checkerboye is always white
-            #TODO: determine what move to be making for ai
-            #TODO: ai will determine on its own whether no more moves are available
             print("\n\nWhite's turn.")
             board.print_board()
             valid_move = False
             invalid_count = 0
 
             while not valid_move:
-                #TODO first check if a jump exists since that has to be taken
 
                 init_pos, finl_dir, movep, isjump = boye.choose_best_move(board, cont_pos, turn)
 
                 if 1 == 2:
                     print("uwot")
-                    #TODO case when win
-                    #TODO case when draw
                 else: #normal movement case
 
                     #determine final position of movement
@@ -560,7 +515,6 @@ def play_checkers():
                         finl_pos = jump_neighbors[init_pos][finl_dir]
                     else: #else
                         finl_pos = direct_neighbors[init_pos][finl_dir]
-                    #TODO this is getting an error once white runs out of pieces
                     if finl_pos == '':
                         if invalid_count > 3:
                             print("Assuming no more valid moves exist.\nBlack wins!")
@@ -570,7 +524,7 @@ def play_checkers():
                         print("Not a valid move. try again")
                         invalid_count += 1
                         continue
-                    if abs(finl_pos - init_pos) > 5:
+                    if abs(finl_pos - init_pos) > 4:
                         elim_p = True
                         no_cap_count = 0
                     else:
@@ -613,6 +567,6 @@ if __name__ == '__main__':
 
     no_cap_max = 75
 
-    valid_positions = range(32)
+    valid_positions = range(18)
 
     play_checkers()

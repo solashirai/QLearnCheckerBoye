@@ -6,23 +6,27 @@ from multiprocessing import Process, Queue, current_process
 import time
 
 def boye_self_play(update_queue1, update_queue2):
+
+    check_winrate = False
     print("Starting self play...")
     boye = CheckerBoye()
     black_boye = CheckerBoye()
     board = 0
-    cache_reset_chance = 10 #10% chance to clear cache of moves and force boyes to get from database again
 
     boye.load_boye(dbname)
     black_boye.load_boye(dbnameblk)
 
     #this is probably too many games to realistically play
-    fuckin_max = 250000
+    fuckin_max = 500000
     fuckin_count = 0
+
+    if (check_winrate):
+        fuckin_max = 3000
+
+    whitewin = 0
+    tiecount = 0
     while fuckin_count < fuckin_max:
         board = CheckersBoard()
-        if random.randint(0, 100) < cache_reset_chance:
-            boye.clear_moves()
-            black_boye.clear_moves()
         boye_moves = list()
         boye_states = list()
         black_boye_moves = list()
@@ -42,8 +46,11 @@ def boye_self_play(update_queue1, update_queue2):
         while playing:
             if no_cap_count > no_cap_max:
                 playing = False
-                reward = 0.2
+                reward = -3
+                tiecount += 1
                 break
+            #board.print_board()
+            #print("")
             if turn == 1:  # black turn
                 black_boye_states.append(board.state)
                 valid_move = False
@@ -51,10 +58,10 @@ def boye_self_play(update_queue1, update_queue2):
 
                 while not valid_move:
 
-                    if random.randint(0,100) > randchance or fuckin_count%10 == 0 or firstmove: #make black do random moves a lot more
-                        init_pos, finl_dir, movep, isjump = black_boye.choose_best_move(board, cont_pos, turn)
-                    else:
+                    if random.randint(0,100) <=  randchance or fuckin_count%10 == 0 or firstmove: #make black do random moves a lot more
                         init_pos, finl_dir, movep, isjump = black_boye.choose_rando_move(board, cont_pos, turn)
+                    else:
+                        init_pos, finl_dir, movep, isjump = black_boye.choose_best_move(board, cont_pos, turn)
                     firstmove = False
 
                     if isjump:  # if the move is a jump
@@ -64,13 +71,14 @@ def boye_self_play(update_queue1, update_queue2):
                     if finl_pos == '':
                         if invalid_count > 3:
                             reward = 4
+                            whitewin += 1
                             playing = False
                             valid_move = True
                             break
-                        # print("Not a valid move. try again")
+                        #print("Not a valid movea. try again")
                         invalid_count += 1
                         continue
-                    if abs(finl_pos - init_pos) > 5:
+                    if abs(finl_pos - init_pos) > 4:
                         elim_p = True
                         no_cap_count = 0
                     else:
@@ -82,18 +90,20 @@ def boye_self_play(update_queue1, update_queue2):
                     if not valid_move:
                         if invalid_count > 3:
                             reward = 4
+                            whitewin += 1
                             playing = False
                             valid_move = True
                             break
-                        # print("Not a valid move. try again")
+                        #print("Not a valid moveb. try again")
                         invalid_count += 1
                     elif cont_pos > -1 and init_pos != cont_pos:
                         if invalid_count > 3:
                             reward = 4
+                            whitewin += 1
                             playing = False
                             valid_move = True
                             break
-                        # print("Not a valid move. try again")
+                        #print("Not a valid movec. try again")
                         invalid_count += 1
                     else:
                         black_boye_moves.append([init_pos, finl_pos])
@@ -125,10 +135,10 @@ def boye_self_play(update_queue1, update_queue2):
                             playing = False
                             valid_move = True
                             break
-                        #print("Not a valid move. try again")
+                        #print("Not a valid move1. try again")
                         invalid_count += 1
                         continue
-                    if abs(finl_pos - init_pos) > 5:
+                    if abs(finl_pos - init_pos) > 4:
                         elim_p = True
                         no_cap_count = 0
                     else:
@@ -143,7 +153,7 @@ def boye_self_play(update_queue1, update_queue2):
                             playing = False
                             valid_move = True
                             break
-                        #print("Not a valid move. try again")
+                        #print("Not a valid move2. try again")
                         invalid_count += 1
                     elif cont_pos > -1 and init_pos != cont_pos:
                         if invalid_count > 3:
@@ -151,7 +161,7 @@ def boye_self_play(update_queue1, update_queue2):
                             playing = False
                             valid_move = True
                             break
-                        #print("Not a valid move. try again")
+                        #print("Not a valid move3. try again")
                         invalid_count += 1
                     else:
                         #print("White moved piece %s" % [init_pos, finl_pos])
@@ -169,6 +179,9 @@ def boye_self_play(update_queue1, update_queue2):
         if fuckin_count % 500 == 0:
             print(str(fuckin_count)+" games played by process "+str(current_process()))
     print("Fuckin Max")
+    if check_winrate:
+        print("White win rate: %s" %(whitewin / fuckin_count))
+        print("Tie rate: %s" %(tiecount / fuckin_count))
     return
 
 def do_queue2(update_queue2):
@@ -226,110 +239,81 @@ def black_boye_update(black_boye, reward, black_boye_states, black_boye_moves):
                                  -reward, black_boye_states[len(black_boye_states) - i])
 
 if __name__ == '__main__':
-    dbname = "checker_boye_moves_mysql"
-    dbnameblk = "checker_black_boye_moves_mysql"
+    dbname = "checker_smol"
+    dbnameblk = "checker_black_smol"
 
     learn_rate = 0.1
-    randchance = 5
+    randchance = 8
 
     #define variables to control board
     #black is assumed to be positioned at the bottom of the screen
-    no_chkr = 0
     blk_chkr = 1
     blk_kng_chkr = 2
-    blk_kng_row = [0,1,2,3]
+    blk_kng_row = [0, 1, 2]
     wht_chkr = -blk_chkr
     wht_kng_chkr = -blk_kng_chkr
-    wht_kng_row = [28,29,30,31]
+    wht_kng_row = [15, 16, 17]
 
-    outcomes = ['1-0', '1/2-1/2', '0-1']
+    no_cap_max = 30
 
-    no_cap_max = 20
-
-    valid_positions = range(32)
-
-    #dict of neighbors to be used to determine valid moves
-    #neighbors are listed in the order of upper-left neighbor clockwise
-    #if no neighbor exists in a corner it is indicated by ''
+    # dict of neighbors to be used to determine valid moves
+    # neighbors are listed in the order of upper-left neighbor clockwise
+    # if no neighbor exists in a corner it is indicated by ''
     direct_neighbors = {
-        0: ['', '', 5, 4],
-        1: ['', '', 6, 5],
-        2: ['', '', 7, 6],
-        3: ['', '', '', 7],
-        4: ['', 0, 8, ''],
-        5: [0, 1, 9, 8],
-        6: [1, 2, 10, 9],
-        7: [2, 3, 11, 10],
-        8: [4, 5, 13, 12],
-        9: [5, 6, 14, 13],
-        10: [6, 7, 15, 14],
-        11: [7, '', '', 15],
-        12: ['', 8, 16, ''],
-        13: [8, 9, 17, 16],
-        14: [9, 10, 18, 17],
-        15: [10, 11, 19, 18],
-        16: [12, 13, 21, 20],
-        17: [13, 14, 22, 21],
-        18: [14, 15, 23, 22],
-        19: [15, '', '', 23],
-        20: ['', 16, 24, ''],
-        21: [16, 17, 25, 24],
-        22: [17, 18, 26, 25],
-        23: [18, 19, 27, 26],
-        24: [20, 21, 29, 28],
-        25: [21, 22, 30, 29],
-        26: [22, 23, 31, 30],
-        27: [23, '', '', 31],
-        28: ['', 24, '', ''],
-        29: [24, 25, '', ''],
-        30: [25, 26, '', ''],
-        31: [26, 27, '', '']
+        0: ['', '', 4, 3],
+        1: ['', '', 5, 4],
+        2: ['', '', '', 5],
+        3: ['', 0, 6, ''],
+        4: [0, 1, 7, 6],
+        5: [1, 2, 8, 7],
+        6: [3, 4, 10, 9],
+        7: [4, 5, 11, 10],
+        8: [5, '', '', 11],
+        9: ['', 6, 12, ''],
+        10: [6, 7, 13, 12],
+        11: [7, 8, 14, 13],
+        12: [9, 10, 16, 15],
+        13: [10, 11, 17, 16],
+        14: [11, '', '', 17],
+        15: ['', 12, '', ''],
+        16: [12, 13, '', ''],
+        17: [13, 14, '', '']
     }
 
-    #neighbors that exist if the direct neighbor is jumped over
-    #'' is used if no jump neighbor exists
+    # neighbors that exist if the direct neighbor is jumped over
+    # '' is used if no jump neighbor exists
     jump_neighbors = {
-        0: ['', '', 9, ''],
-        1: ['', '', 10, 8],
-        2: ['', '', 11, 9],
-        3: ['', '', '', 10],
-        4: ['', '', 13, ''],
-        5: ['', '', 14, 12],
-        6: ['', '', 15, 13],
-        7: ['', '', '', 14],
-        8: ['', 1, 17, ''],
-        9: [0, 2, 18, 16],
-        10: [1, 3, 19, 17],
-        11: [2, '', '', 18],
-        12: ['', 5, 21, ''],
-        13: [4, 6, 22, 20],
-        14: [5, 7, 23, 21],
-        15: [6, '', '', 22],
-        16: ['', 9, 25, ''],
-        17: [8, 10, 26, 24],
-        18: [9, 11, 27, 25],
-        19: [10, '', '', 26],
-        20: ['', 13, 29, ''],
-        21: [12, 14, 30, 28],
-        22: [13, 15, 31, 29],
-        23: [14, '', '', 30],
-        24: ['', 17, '', ''],
-        25: [16, 18, '', ''],
-        26: [17, 19, '', ''],
-        27: [18, '', '', ''],
-        28: ['', 21, '', ''],
-        29: [20, 22, '', ''],
-        30: [21, 23, '', ''],
-        31: [22, '', '', '']
+        0: ['', '', 7, ''],
+        1: ['', '', 8, 6],
+        2: ['', '', '', 7],
+        3: ['', '', 10, ''],
+        4: ['', '', 11, 9],
+        5: ['', '', '', 10],
+        6: ['', 1, 13, ''],
+        7: [0, 2, 14, 12],
+        8: [1, '', '', 13],
+        9: ['', 4, 16, ''],
+        10: [3, 5, 17, 15],
+        11: [4, '', '', 16],
+        12: ['', 7, '', ''],
+        13: [6, 8, '', ''],
+        14: [7, '', '', ''],
+        15: ['', 10, '', ''],
+        16: [9, 11, '', ''],
+        17: [10, '', '', '']
     }
 
-    update_queue1 = Queue()
-    update_queue2 = Queue()
-    for i in range(4):
+    update_queue1 = Queue(1000)
+    update_queue2 = Queue(1000)
+    for i in range(2):
         Process(target=boye_self_play, args=(update_queue1,update_queue2)).start()
     px = Process(target=do_queue1, args=(update_queue1,))
     Process(target=do_queue2, args=(update_queue2,)).start()
     px.start()
     px.join() #never ending
+
+    #P1 = Process(target=boye_self_play, args=(update_queue1,update_queue2))
+    #P1.start()
+    #P1.join()
     #boye_self_play()
     print("Processes started")
