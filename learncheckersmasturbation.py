@@ -1,13 +1,10 @@
 from playcheckers import CheckerBoye, CheckersBoard
-import numpy as np
 import random
-import pymysql
 from multiprocessing import Process, Queue, current_process
-import time
 
 def boye_self_play(update_queue1, update_queue2):
 
-    check_winrate = False
+    check_winrate = True
     print("Starting self play...")
     boye = CheckerBoye()
     black_boye = CheckerBoye()
@@ -17,15 +14,15 @@ def boye_self_play(update_queue1, update_queue2):
     black_boye.load_boye(dbnameblk)
 
     #this is probably too many games to realistically play
-    fuckin_max = 500000
-    fuckin_count = 0
+    max_count = 500000
+    current_count = 0
 
     if (check_winrate):
-        fuckin_max = 3000
+        max_count = 3000
 
     whitewin = 0
     tiecount = 0
-    while fuckin_count < fuckin_max:
+    while current_count < max_count:
         board = CheckersBoard()
         boye_moves = list()
         boye_states = list()
@@ -46,11 +43,9 @@ def boye_self_play(update_queue1, update_queue2):
         while playing:
             if no_cap_count > no_cap_max:
                 playing = False
-                reward = -3
+                reward = -4
                 tiecount += 1
                 break
-            #board.print_board()
-            #print("")
             if turn == 1:  # black turn
                 black_boye_states.append(board.state)
                 valid_move = False
@@ -58,7 +53,7 @@ def boye_self_play(update_queue1, update_queue2):
 
                 while not valid_move:
 
-                    if random.randint(0,100) <=  randchance or fuckin_count%10 == 0 or firstmove: #make black do random moves a lot more
+                    if random.randint(0,100) <= randchance or current_count%20 == 0 or firstmove: #make black do random moves a lot more
                         init_pos, finl_dir, movep, isjump = black_boye.choose_rando_move(board, cont_pos, turn)
                     else:
                         init_pos, finl_dir, movep, isjump = black_boye.choose_best_move(board, cont_pos, turn)
@@ -75,7 +70,6 @@ def boye_self_play(update_queue1, update_queue2):
                             playing = False
                             valid_move = True
                             break
-                        #print("Not a valid movea. try again")
                         invalid_count += 1
                         continue
                     if abs(finl_pos - init_pos) > 4:
@@ -94,7 +88,6 @@ def boye_self_play(update_queue1, update_queue2):
                             playing = False
                             valid_move = True
                             break
-                        #print("Not a valid moveb. try again")
                         invalid_count += 1
                     elif cont_pos > -1 and init_pos != cont_pos:
                         if invalid_count > 3:
@@ -103,7 +96,6 @@ def boye_self_play(update_queue1, update_queue2):
                             playing = False
                             valid_move = True
                             break
-                        #print("Not a valid movec. try again")
                         invalid_count += 1
                     else:
                         black_boye_moves.append([init_pos, finl_pos])
@@ -118,7 +110,7 @@ def boye_self_play(update_queue1, update_queue2):
                 valid_move = False
                 invalid_count = 0
 
-                while not valid_move:
+                while not valid_move: #TODO fix the logic inside here so that there's less repeated code from above
 
                     if random.randint(0,100) > randchance:
                         init_pos, finl_dir, movep, isjump = boye.choose_best_move(board, cont_pos, turn)
@@ -135,7 +127,6 @@ def boye_self_play(update_queue1, update_queue2):
                             playing = False
                             valid_move = True
                             break
-                        #print("Not a valid move1. try again")
                         invalid_count += 1
                         continue
                     if abs(finl_pos - init_pos) > 4:
@@ -153,7 +144,6 @@ def boye_self_play(update_queue1, update_queue2):
                             playing = False
                             valid_move = True
                             break
-                        #print("Not a valid move2. try again")
                         invalid_count += 1
                     elif cont_pos > -1 and init_pos != cont_pos:
                         if invalid_count > 3:
@@ -161,10 +151,8 @@ def boye_self_play(update_queue1, update_queue2):
                             playing = False
                             valid_move = True
                             break
-                        #print("Not a valid move3. try again")
                         invalid_count += 1
                     else:
-                        #print("White moved piece %s" % [init_pos, finl_pos])
                         no_cap_count += 1
                         boye_moves.append([init_pos, finl_pos])
                         if cont_jump:
@@ -173,52 +161,36 @@ def boye_self_play(update_queue1, update_queue2):
                         else:
                             cont_pos = -1
                             turn = -turn
-        fuckin_count += 1
+        current_count += 1
         update_queue1.put([boye_states, boye_moves, reward])
         update_queue2.put([black_boye_states, black_boye_moves, reward])
-        if fuckin_count % 500 == 0:
-            print(str(fuckin_count)+" games played by process "+str(current_process()))
-    print("Fuckin Max")
+        if current_count % 500 == 0:
+            print(str(current_count)+" games played by process "+str(current_process()))
+    print("reached count max")
     if check_winrate:
-        print("White win rate: %s" %(whitewin / fuckin_count))
-        print("Tie rate: %s" %(tiecount / fuckin_count))
+        print("White win rate: %s" %(whitewin / current_count))
+        print("Tie rate: %s" %(tiecount / current_count))
     return
 
-def do_queue2(update_queue2):
-    fuckin_count = 0
-    print("Starting queue controller...")
-    black_boye = CheckerBoye()
-    black_boye.load_boye(dbnameblk)
-    while True:
-        queue_contents = update_queue2.get()
-        black_boye_update(black_boye, queue_contents[2], queue_contents[0], queue_contents[1])
-        fuckin_count += 1
-
-        if fuckin_count % 250 == 0:
-            print("total black gamecount: " + str(fuckin_count))
-
-        if fuckin_count % 1000 == 0:
-            black_boye.save_boye()
-            print("saved black")
-
-def do_queue1(update_queue1):
-    fuckin_count = 0
+def do_queue(update_queue, loaddb, boyecolor):
+    current_count = 0
     print("Starting queue controller...")
     boye = CheckerBoye()
-    boye.load_boye(dbname)
+    boye.load_boye(loaddb)
     while True:
-        queue_contents = update_queue1.get()
-        white_boye_update(boye, queue_contents[2], queue_contents[0], queue_contents[1])
-        fuckin_count += 1
+        queue_contents = update_queue.get()
+        boye_update(boye, -queue_contents[2], queue_contents[0], queue_contents[1])
+        current_count += 1
 
-        if fuckin_count % 250 == 0:
-            print("total white gamecount: " + str(fuckin_count))
+        if current_count % 250 == 0:
+            print("total "+boyecolor+" gamecount: " + str(current_count))
 
-        if fuckin_count % 1000 == 0:
+        if current_count % 1000 == 0:
             boye.save_boye()
-            print("saved white")
+            print("saved "+boyecolor)
 
-def white_boye_update(boye, reward, boye_states, boye_moves):
+
+def boye_update(boye, reward, boye_states, boye_moves):
     if len(boye_states) > len(boye_moves):
         del boye_states[-1]
     boye.update_move_p(boye_states[len(boye_states) - 1], boye_moves[len(boye_moves) - 1], learn_rate,
@@ -227,23 +199,12 @@ def white_boye_update(boye, reward, boye_states, boye_moves):
         boye.update_move_p(boye_states[len(boye_states) - 1 - i], boye_moves[len(boye_moves) - 1 - i], learn_rate,
                            reward, boye_states[len(boye_states) - i])
 
-def black_boye_update(black_boye, reward, black_boye_states, black_boye_moves):
-    if len(black_boye_states) > len(black_boye_moves):
-        del black_boye_states[-1]
-    black_boye.update_move_p(black_boye_states[len(black_boye_states) - 1], black_boye_moves[len(black_boye_moves) - 1],
-                             learn_rate,
-                             -reward, black_boye_states[len(black_boye_states) - 1])
-    for i in range(1, len(black_boye_moves)):
-        black_boye.update_move_p(black_boye_states[len(black_boye_states) - 1 - i],
-                                 black_boye_moves[len(black_boye_moves) - 1 - i], learn_rate,
-                                 -reward, black_boye_states[len(black_boye_states) - i])
-
 if __name__ == '__main__':
     dbname = "checker_smol"
     dbnameblk = "checker_black_smol"
 
-    learn_rate = 0.1
-    randchance = 8
+    learn_rate = 0.25
+    randchance = 5
 
     #define variables to control board
     #black is assumed to be positioned at the bottom of the screen
@@ -307,13 +268,8 @@ if __name__ == '__main__':
     update_queue2 = Queue(1000)
     for i in range(2):
         Process(target=boye_self_play, args=(update_queue1,update_queue2)).start()
-    px = Process(target=do_queue1, args=(update_queue1,))
-    Process(target=do_queue2, args=(update_queue2,)).start()
+    px = Process(target=do_queue, args=(update_queue1,dbname, "white"))
+    Process(target=do_queue, args=(update_queue2,dbnameblk, "black")).start()
     px.start()
-    px.join() #never ending
-
-    #P1 = Process(target=boye_self_play, args=(update_queue1,update_queue2))
-    #P1.start()
-    #P1.join()
-    #boye_self_play()
+    px.join()
     print("Processes started")
